@@ -3,9 +3,11 @@ WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts
 
-FROM php:8.3-fpm-bookworm
+FROM php:8.4-fpm-bookworm
 
-RUN apt-get update && apt-get install -y \
+RUN rm -f /etc/apt/apt.conf.d/docker-clean \
+    && mkdir -p /var/cache/apt/archives/partial \
+    && apt-get update && apt-get install -y \
     git \
     unzip \
     libzip-dev \
