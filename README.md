@@ -30,6 +30,7 @@ docker compose exec app php artisan migrate --seed
 - Audit report: `docs/audit/initial-system-audit.md`
 - Security guide: `docs/security/credential-management.md`
 - Deployment baseline: `docker-compose.yml`
+- Production deployment artifacts: `deploy/production/`
 - Release scripts: `scripts/`
 
 ## Notes
