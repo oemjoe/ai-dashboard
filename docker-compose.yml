@@ -1,0 +1,47 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: ai-dashboard-app
+    working_dir: /var/www/html
+    env_file:
+      - .env
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      - db
+      - redis
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ai-dashboard-nginx
+    ports:
+      - "127.0.0.1:18095:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  db:
+    image: mariadb:10.11
+    container_name: ai-dashboard-db
+    environment:
+      MYSQL_DATABASE: ai_dashboard
+      MYSQL_USER: ai_dashboard
+      MYSQL_PASSWORD: ai_dashboard
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "127.0.0.1:3330:3306"
+    volumes:
+      - ai_dashboard_db:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-dashboard-redis
+    ports:
+      - "127.0.0.1:6381:6379"
+
+volumes:
+  ai_dashboard_db:
