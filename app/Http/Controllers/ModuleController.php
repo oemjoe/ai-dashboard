@@ -13,7 +13,7 @@ class ModuleController extends Controller
         return view('modules.show', $dashboardDataService->modulePayload(
             slug: $module,
             user: $request->user(),
-            filters: $request->only(['company', 'period', 'date_from', 'date_to', 'division', 'branch', 'location']),
+            filters: $request->only(['keyword', 'company', 'period', 'date_from', 'date_to', 'division', 'branch', 'location']),
         ));
     }
 }

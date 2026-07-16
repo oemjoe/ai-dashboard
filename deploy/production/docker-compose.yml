@@ -1,28 +1,34 @@
 services:
   app:
-    build:
-      context: ./current
-      dockerfile: docker/php/Dockerfile
+    image: ${APP_IMAGE:-tms-erp-app:local-php82}
     container_name: ai-dashboard-app
     restart: unless-stopped
     working_dir: /var/www/html
     env_file:
       - ./shared/.env
     volumes:
-      - ./current:/var/www/html:ro
+      - ./current:/var/www/html
       - ./shared/storage:/var/www/html/storage
       - ./shared/bootstrap-cache:/var/www/html/bootstrap/cache
       - ./shared/.env:/var/www/html/.env:ro
-    command: >
-      sh -lc "mkdir -p /var/www/html/storage/app/public
+    command: >-
+      /bin/sh -lc '
+      git config --global --add safe.directory /var/www/html >/dev/null 2>&1 || true &&
+      if [ ! -f /var/www/html/vendor/autoload.php ]; then composer install --no-dev --prefer-dist --no-interaction --no-scripts; fi &&
+      mkdir -p
+      /var/www/html/storage/app/public
       /var/www/html/storage/framework/cache/data
       /var/www/html/storage/framework/sessions
       /var/www/html/storage/framework/testing
       /var/www/html/storage/framework/views
       /var/www/html/storage/logs
-      /var/www/html/bootstrap/cache
-      && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-      && php-fpm"
+      /var/www/html/bootstrap/cache &&
+      chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache &&
+      php-fpm -F'
+    networks:
+      - default
+      - ollama_shared
+      - erp_tnp_shared
     depends_on:
       - db
       - redis
@@ -41,7 +47,7 @@ services:
       - app
 
   db:
-    image: mariadb:10.11
+    image: mariadb:10.6
     container_name: ai-dashboard-db
     restart: unless-stopped
     environment:
@@ -59,3 +65,11 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - ./shared/redis-data:/data
+
+networks:
+  ollama_shared:
+    external: true
+    name: chatbot-ollama_default
+  erp_tnp_shared:
+    external: true
+    name: erp_tnp_network

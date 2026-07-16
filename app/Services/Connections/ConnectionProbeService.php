@@ -112,7 +112,7 @@ class ConnectionProbeService
         try {
             $grants = DB::connection($connectionName)->select('show grants for current_user()');
             $serialized = json_encode($grants, JSON_THROW_ON_ERROR);
-            $disallowed = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'TRUNCATE', 'GRANT'];
+            $disallowed = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'TRUNCATE'];
 
             foreach ($disallowed as $keyword) {
                 if (stripos($serialized, $keyword) !== false) {

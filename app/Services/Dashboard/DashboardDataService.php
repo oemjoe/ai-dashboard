@@ -10,12 +10,14 @@ use App\Models\User;
 use App\Services\AI\AiProviderManager;
 use App\Services\Connections\ConnectionProbeService;
 use Illuminate\Support\Collection;
+use Throwable;
 
 class DashboardDataService
 {
     public function __construct(
         private readonly ConnectionProbeService $connectionProbeService,
         private readonly AiProviderManager $aiProviderManager,
+        private readonly LiveModuleAnalysisService $liveModuleAnalysisService,
     ) {
     }
 
@@ -49,15 +51,26 @@ class DashboardDataService
         $connections = DataConnection::query()->get()->filter(
             fn (DataConnection $connection) => in_array($slug, $connection->module_slugs ?? [], true)
         )->values();
+        $livePayload = null;
+        $liveError = null;
 
-        $kpis = $snapshot?->metrics ?? [
+        if ($this->liveModuleAnalysisService->supports($slug)) {
+            try {
+                $livePayload = $this->liveModuleAnalysisService->analyze($slug, $filters);
+            } catch (Throwable $exception) {
+                report($exception);
+                $liveError = 'Analisa live sementara gagal dijalankan. Halaman menampilkan baseline terakhir yang tersedia sambil koneksi/kueri diverifikasi ulang.';
+            }
+        }
+
+        $kpis = $livePayload['kpis'] ?? $snapshot?->metrics ?? [
             ['label' => 'Configured Data Sources', 'value' => $connections->count()],
             ['label' => 'Validated Read-only', 'value' => $connections->where('is_read_only_validated', true)->count()],
             ['label' => 'Company Scope', 'value' => $user?->preferred_company_code ?: 'Not selected'],
             ['label' => 'Last Snapshot', 'value' => $snapshot?->generated_at?->diffForHumans() ?? 'Belum ada'],
         ];
 
-        $findings = $snapshot?->findings ?? [
+        $findings = $livePayload['findings'] ?? $snapshot?->findings ?? [
             [
                 'title' => 'Data Mapping Incomplete',
                 'severity' => 'warning',
@@ -70,19 +83,28 @@ class DashboardDataService
             ],
         ];
 
+        if ($liveError !== null) {
+            array_unshift($findings, [
+                'title' => 'Live analysis fallback',
+                'severity' => 'warning',
+                'description' => $liveError,
+            ]);
+        }
+
         return [
             'module' => $module,
             'filters' => $filters,
-            'mapping_status' => $snapshot?->mapping_status ?? $module->mapping_status,
+            'mapping_status' => $livePayload['mapping_status'] ?? $snapshot?->mapping_status ?? $module->mapping_status,
             'kpis' => $kpis,
             'findings' => $findings,
             'connections' => $connections,
             'ai_summary' => $this->aiProviderManager->summarize($module->name, [
-                'mapping_status' => $snapshot?->mapping_status ?? $module->mapping_status,
+                'mapping_status' => $livePayload['mapping_status'] ?? $snapshot?->mapping_status ?? $module->mapping_status,
                 'kpis' => $kpis,
             ]),
-            'data_as_of' => $snapshot?->data_as_of,
-            'generated_at' => $snapshot?->generated_at,
+            'data_as_of' => $livePayload['data_as_of'] ?? $snapshot?->data_as_of,
+            'generated_at' => $livePayload['generated_at'] ?? $snapshot?->generated_at,
+            'data_preview' => $livePayload['data_preview'] ?? null,
         ];
     }
 

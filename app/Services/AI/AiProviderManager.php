@@ -27,16 +27,18 @@ class AiProviderManager
 
     public function summarize(string $moduleName, array $payload): string
     {
-        $headline = $payload['mapping_status'] === 'data_mapping_incomplete'
-            ? 'Data mapping untuk modul ini belum tervalidasi penuh.'
-            : 'Analisis dasar tersedia dari snapshot lokal.';
+        $headline = match ($payload['mapping_status'] ?? null) {
+            'data_mapping_incomplete' => 'Data mapping untuk modul ini belum tervalidasi penuh.',
+            'live_analysis_ready' => 'Analisa live modul ini sudah aktif dari sumber production read-only.',
+            default => 'Analisis dasar tersedia dari snapshot lokal.',
+        };
 
         $topMetric = collect($payload['kpis'] ?? [])->first();
         $metricText = $topMetric
             ? "{$topMetric['label']}: {$topMetric['value']}"
             : 'Belum ada KPI yang siap ditampilkan.';
 
-        return "{$moduleName}: {$headline} {$metricText} Gunakan hasil ini sebagai baseline sebelum AI eksternal diaktifkan.";
+        return "{$moduleName}: {$headline} {$metricText} Gunakan hasil ini sebagai baseline operasional sambil aturan analisa lanjutan terus ditingkatkan.";
     }
 
     private function providerFor(AiProvider $provider): AiProviderInterface
